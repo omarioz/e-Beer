@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 interface LoginForm {
-  email: string;
+  phone_number: string;
   password: string;
 }
 
@@ -23,7 +23,8 @@ export const LoginPage: React.FC = () => {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     try {
-      const user = await login(data.email, data.password);
+      // Use phone_number as username for Django backend
+      const user = await login(data.phone_number, data.password);
       toast.success('Welcome back!');
       
       // Navigate based on user role
@@ -50,15 +51,22 @@ export const LoginPage: React.FC = () => {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="phone_number">Phone Number</Label>
               <Input
-                id="email"
-                type="email"
-                {...register('email', { required: 'Email is required' })}
+                id="phone_number"
+                type="tel"
+                placeholder="+1234567890"
+                {...register('phone_number', { 
+                  required: 'Phone number is required',
+                  pattern: {
+                    value: /^\+?[1-9]\d{1,14}$/,
+                    message: 'Please enter a valid phone number'
+                  }
+                })}
                 className="mt-1"
               />
-              {errors.email && (
-                <p className="text-destructive text-sm mt-1">{errors.email.message}</p>
+              {errors.phone_number && (
+                <p className="text-destructive text-sm mt-1">{errors.phone_number.message}</p>
               )}
             </div>
 

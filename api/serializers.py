@@ -19,7 +19,7 @@ class AppUserSerializer(serializers.ModelSerializer):
     """Serializer for AppUser model"""
     class Meta:
         model = AppUser
-        fields = ['id', 'name', 'email', 'role']
+        fields = ['id', 'name', 'phone_number', 'role', 'region', 'email_notifications', 'language']
 
 class RegisterSerializer(serializers.ModelSerializer):
     """Serializer for user registration"""
@@ -27,10 +27,11 @@ class RegisterSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(write_only=True)
     role = serializers.ChoiceField(choices=AppUser.ROLE_CHOICES)
     name = serializers.CharField(max_length=255)
+    phone_number = serializers.CharField(max_length=15)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'password2', 'role', 'name']
+        fields = ['username', 'password', 'password2', 'role', 'name', 'phone_number']
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
@@ -40,25 +41,31 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         role = validated_data.pop('role')
         name = validated_data.pop('name')
+        phone_number = validated_data.pop('phone_number')
         validated_data.pop('password2')
         
         user = User.objects.create_user(**validated_data)
-        AppUser.objects.create(user=user, name=name, email=validated_data['email'], role=role)
+        AppUser.objects.create(user=user, name=name, phone_number=phone_number, role=role)
         
         return user
 
 class ProduceSerializer(serializers.ModelSerializer):
     """Serializer for Produce model"""
     farmer_name = serializers.CharField(source='farmer.username', read_only=True)
+    has_orders = serializers.SerializerMethodField()
     
     class Meta:
         model = Produce
         fields = [
             'id', 'farmer', 'farmer_name', 'name', 'image_url', 'quantity',
             'price_per_kg', 'min_price', 'location', 'harvest_date',
-            'is_active', 'created_at'
+            'is_active', 'has_orders', 'created_at'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id','farmer', 'created_at']
+    
+    def get_has_orders(self, obj):
+        """Check if this produce has any orders (meaning it was sold)"""
+        return obj.orders.exists()
 
     def validate(self, attrs):
         if attrs.get('min_price', 0) > attrs.get('price_per_kg', 0):

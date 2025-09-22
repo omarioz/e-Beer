@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/common/Header';
 import { OfflineBanner } from '@/components/common/OfflineBanner';
 import { useTranslation } from 'react-i18next';
 import { useAuthActions } from '@/hooks/useAuth';
+import { apiClient } from '@/lib/api';
+import { toast } from 'sonner';
 import { Camera, Wallet, History, Globe, Bell, RefreshCw, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,11 +26,12 @@ export const BuyerProfilePage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { logout, switchRole } = useAuthActions();
   const [profile, setProfile] = useState({
-    name: 'Amina Omar',
-    email: 'amina.omar@example.com',
-    phone: '+252 61 987 6543',
+    name: '',
+    phone_number: '',
     region: 'Mogadishu',
-    avatar: ''
+    avatar: '',
+    email_notifications: true,
+    language: 'en'
   });
   
   const [notifications, setNotifications] = useState({
@@ -37,10 +40,67 @@ export const BuyerProfilePage: React.FC = () => {
     sms: false
   });
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
   const walletBalance = 347.25;
+
+  // Load user profile data
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      setIsLoading(true);
+      const response = await apiClient.getProfile();
+      if (response.error) {
+        toast.error(response.error);
+      } else {
+        setProfile(prev => ({
+          ...prev,
+          name: response.data.name || '',
+          phone_number: response.data.phone_number || '',
+          region: response.data.region || 'Mogadishu',
+          email_notifications: response.data.email_notifications ?? true,
+          language: response.data.language || 'en',
+        }));
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveProfile = async () => {
+    try {
+      setIsSaving(true);
+      const response = await apiClient.updateProfile({
+        name: profile.name,
+        phone_number: profile.phone_number,
+        region: profile.region,
+        email_notifications: profile.email_notifications,
+        language: profile.language
+      });
+      
+      if (response.error) {
+        toast.error(response.error);
+      } else {
+        toast.success('Profile updated successfully!');
+        // Reload profile to get updated data
+        await loadProfile();
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
+    setProfile(prev => ({ ...prev, language: lang }));
   };
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,22 +160,14 @@ export const BuyerProfilePage: React.FC = () => {
                   onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
                 />
               </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={profile.email}
-                  onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
-                />
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone">Phone Number</Label>
                   <Input
                     id="phone"
-                    value={profile.phone}
-                    onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                    value={profile.phone_number}
+                    onChange={(e) => setProfile(prev => ({ ...prev, phone_number: e.target.value }))}
+                    placeholder="+252 61 234 5678"
                   />
                 </div>
                 <div>
@@ -136,6 +188,17 @@ export const BuyerProfilePage: React.FC = () => {
                   </Select>
                 </div>
               </div>
+            </div>
+            
+            {/* Save Button */}
+            <div className="flex justify-end pt-4">
+              <Button 
+                onClick={saveProfile} 
+                disabled={isSaving}
+                className="min-w-24"
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -215,9 +278,9 @@ export const BuyerProfilePage: React.FC = () => {
               <Label htmlFor="email-notifications">Email Notifications</Label>
               <Switch
                 id="email-notifications"
-                checked={notifications.email}
+                checked={profile.email_notifications}
                 onCheckedChange={(checked) => 
-                  setNotifications(prev => ({ ...prev, email: checked }))
+                  setProfile(prev => ({ ...prev, email_notifications: checked }))
                 }
               />
             </div>
@@ -255,7 +318,7 @@ export const BuyerProfilePage: React.FC = () => {
                 <Globe className="w-4 h-4" />
                 <Label>Language</Label>
               </div>
-              <Select value={i18n.language} onValueChange={handleLanguageChange}>
+              <Select value={profile.language} onValueChange={handleLanguageChange}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>

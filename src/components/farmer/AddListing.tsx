@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Camera, Upload, MapPin, Calendar } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { cn } from '@/lib/utils';
+import { apiClient } from '@/lib/api';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface ListingForm {
   productName: string;
@@ -19,6 +22,7 @@ const CATEGORIES = ['Fruits', 'Vegetables', 'Grains', 'Herbs', 'Legumes'];
 const UNITS = ['kg', 'bunch', 'bag', 'box', 'piece'];
 
 export const AddListing: React.FC = () => {
+  const navigate = useNavigate();
   const [form, setForm] = useState<ListingForm>({
     productName: '',
     category: 'Fruits',
@@ -44,24 +48,30 @@ export const AddListing: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    console.log('Submitting listing:', form);
-    setIsSubmitting(false);
-    
-    // Reset form
-    setForm({
-      productName: '',
-      category: 'Fruits',
-      quantity: '',
-      unit: 'kg',
-      minPrice: '',
-      harvestDate: '',
-      location: '',
-      description: '',
-      image: null
-    });
+    try {
+      // Convert form data to API format
+      const produceData = {
+        name: form.productName,
+        quantity: parseFloat(form.quantity),
+        price_per_kg: parseFloat(form.minPrice),
+        min_price: parseFloat(form.minPrice),
+        location: form.location,
+        harvest_date: form.harvestDate || undefined,
+      };
+
+      const response = await apiClient.createProduce(produceData);
+      
+      if (response.error) {
+        toast.error(response.error);
+      } else {
+        toast.success('Produce listing created successfully!');
+        navigate('/farmer/listings');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create listing');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

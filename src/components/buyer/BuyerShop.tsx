@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, SlidersHorizontal } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ProductCard } from './ProductCard';
 import { BidModal } from './BidModal';
 import { cn } from '@/lib/utils';
+import { apiClient } from '@/lib/api';
+import { toast } from 'sonner';
 import type { Product } from '@/types';
 
 const MOCK_PRODUCTS: Product[] = [
@@ -64,17 +66,69 @@ export const BuyerShop: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load products from API
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      setIsLoading(true);
+      const response = await apiClient.getProduce();
+      if (response.error) {
+        toast.error(response.error);
+      } else {
+        // Convert API data to Product format
+        const apiProducts = (response.data || []).map((produce: any) => ({
+          id: produce.id,
+          name: produce.name,
+          price: produce.price_per_kg,
+          quantity: produce.quantity,
+          unit: 'kg',
+          location: produce.location,
+          freshness: 'fresh', // Default freshness
+          organic: false, // Default organic status
+          image: '/placeholder.svg', // Default image
+          farmer: produce.farmer,
+          harvestDate: produce.harvest_date,
+        }));
+        setProducts(apiProducts);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load products');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleBid = (productId: string) => {
-    const product = MOCK_PRODUCTS.find(p => p.id === productId);
+    const product = products.find(p => p.id === productId);
     if (product) {
       setSelectedProduct(product);
     }
   };
 
-  const handleSubmitBid = (productId: string, bidPrice: number, quantity: number) => {
-    console.log('Bid submitted:', { productId, bidPrice, quantity });
-    // TODO: Submit bid to API
+  const handleSubmitBid = async (productId: string, bidPrice: number, quantity: number) => {
+    try {
+      const bidData = {
+        produce: productId,
+        bid_price: bidPrice,
+      };
+
+      const response = await apiClient.createBid(bidData);
+      
+      if (response.error) {
+        toast.error(response.error);
+      } else {
+        toast.success('Bid submitted successfully!');
+        setSelectedProduct(null);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to submit bid');
+    }
   };
 
   return (
@@ -144,18 +198,28 @@ export const BuyerShop: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Fresh Today</h2>
-            <span className="text-sm text-muted-foreground">{MOCK_PRODUCTS.length} items</span>
+            <span className="text-sm text-muted-foreground">{products.length} items</span>
           </div>
           
-          <div className="grid gap-4">
-            {MOCK_PRODUCTS.map((product) => (
-              <ProductCard
-                key={product.id}
-                {...product}
-                onBid={handleBid}
-              />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">Loading products...</div>
+            </div>
+          ) : products.length > 0 ? (
+            <div className="grid gap-4">
+              {products.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  {...product}
+                  onBid={handleBid}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No products available at the moment
+            </div>
+          )}
         </div>
       </div>
 

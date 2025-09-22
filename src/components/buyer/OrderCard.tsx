@@ -5,16 +5,14 @@ import { useTranslation } from 'react-i18next';
 
 interface Order {
   id: string;
-  produceName: string;
-  thumbnail: string;
-  quantity: number;
-  pricePerKg: number;
-  total: number;
-  farmer: string;
-  region: string;
-  status: 'ordered' | 'picked-up' | 'in-transit' | 'delivered';
-  type: 'active' | 'completed';
-  eta?: string;
+  buyer: string;
+  buyer_name: string;
+  produce: string;
+  produce_name: string;
+  farmer_name: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'delivered' | 'cancelled';
+  delivery_route: string;
+  created_at: string;
 }
 
 interface OrderCardProps {
@@ -24,7 +22,7 @@ interface OrderCardProps {
 }
 
 const StatusTimeline: React.FC<{ status: string }> = ({ status }) => {
-  const steps = ['ordered', 'picked-up', 'in-transit', 'delivered'];
+  const steps = ['pending', 'accepted', 'delivered'];
   const currentIndex = steps.indexOf(status);
 
   return (
@@ -60,34 +58,29 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
       <div className="flex space-x-3">
         {/* Product Image */}
-        <img
-          src={order.thumbnail}
-          alt={order.produceName}
-          className="w-16 h-16 rounded-lg object-cover bg-muted"
-          onError={(e) => {
-            e.currentTarget.src = 'https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=64&h=64&fit=crop';
-          }}
-        />
+        <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
+          <span className="text-2xl">🌾</span>
+        </div>
 
         {/* Order Details */}
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-lg text-foreground truncate">
-            {order.produceName}
+            {order.produce_name}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {order.quantity}kg × ${order.pricePerKg.toFixed(2)} = ${order.total.toFixed(2)}
+            Order ID: {order.id}
           </p>
           <div className="flex items-center space-x-2 text-xs text-muted-foreground mt-1">
             <MapPin className="w-3 h-3" />
-            <span>{order.farmer} • {order.region}</span>
+            <span>{order.farmer_name}</span>
           </div>
 
           {/* Status Timeline for Active Orders */}
-          {order.type === 'active' && (
+          {['pending', 'accepted'].includes(order.status) && (
             <div className="mt-3">
               <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                 <span>{t('orders.progress')}</span>
-                {order.eta && <span>ETA: {order.eta}</span>}
+                <span>Status: {order.status}</span>
               </div>
               <StatusTimeline status={order.status} />
             </div>

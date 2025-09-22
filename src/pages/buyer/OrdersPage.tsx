@@ -11,26 +11,18 @@ import { TrackDrawer } from '@/components/buyer/TrackDrawer';
 import { InvoiceModal } from '@/components/buyer/InvoiceModal';
 import { useTranslation } from 'react-i18next';
 import { useOffline } from '@/hooks/useOffline';
+import { apiClient } from '@/lib/api';
 
 interface Order {
   id: string;
-  produceName: string;
-  thumbnail: string;
-  quantity: number;
-  pricePerKg: number;
-  total: number;
-  farmer: string;
-  region: string;
-  status: 'ordered' | 'picked-up' | 'in-transit' | 'delivered';
-  type: 'active' | 'completed';
-  eta?: string;
-  courierName?: string;
-  courierPhone?: string;
-  trackingData?: {
-    farmLocation: [number, number];
-    buyerLocation: [number, number];
-    courierLocation: [number, number];
-  };
+  buyer: string;
+  buyer_name: string;
+  produce: string;
+  produce_name: string;
+  farmer_name: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'delivered' | 'cancelled';
+  delivery_route: string;
+  created_at: string;
 }
 
 // Mock data
@@ -83,17 +75,28 @@ export const OrdersPage: React.FC = () => {
   const { data: orders, isLoading, error } = useQuery({
     queryKey: ['orders', activeTab],
     queryFn: async () => {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return mockOrders.filter(order => order.type === activeTab);
+      const response = await apiClient.getOrders();
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      return response.data || [];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const filteredOrders = orders?.filter(order =>
-    order.produceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.id.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredOrders = orders?.filter(order => {
+    const matchesSearch = order.produce_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         order.id.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Filter by status for active/completed tabs
+    if (activeTab === 'active') {
+      return matchesSearch && ['pending', 'accepted'].includes(order.status);
+    } else if (activeTab === 'completed') {
+      return matchesSearch && ['delivered', 'cancelled'].includes(order.status);
+    }
+    
+    return matchesSearch;
+  }) || [];
 
   const handleTabChange = (status: string) => {
     setSearchParams({ status });

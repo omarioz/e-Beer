@@ -10,14 +10,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/types';
 import { toast } from 'sonner';
 import { User, ShoppingCart } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
 interface SignupForm {
-  email: string;
+  phone_number: string;
   password: string;
+  password2: string;
   name: string;
-  region: string;
-  language: string;
   role: UserRole;
 }
 
@@ -27,12 +25,7 @@ export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
   const { register: registerUser, setRole } = useAuth();
   
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<SignupForm>({
-    defaultValues: {
-      region: 'Hargeisa',
-      language: 'en'
-    }
-  });
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<SignupForm>();
 
   const onSubmit = async (data: SignupForm) => {
     if (!selectedRole) {
@@ -40,38 +33,25 @@ export const SignupPage: React.FC = () => {
       return;
     }
 
+    if (data.password !== data.password2) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // First register with Supabase auth directly
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email,
+      const user = await registerUser({
+        username: data.phone_number, // Use phone_number as username
+        email: data.phone_number, // Use phone_number as email for now
         password: data.password,
-        options: {
-          data: {
-            name: data.name,
-            role: selectedRole,
-            region: data.region,
-            language: data.language,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-
-      if (error) throw error;
-
-      const user = {
-        id: authData.user!.id,
-        email: data.email,
+        password2: data.password2,
         name: data.name,
         role: selectedRole,
-        region: data.region,
-        language: data.language,
-        createdAt: authData.user!.created_at,
-      };
+        phone_number: data.phone_number, // Add phone_number field
+      });
       
-      await setRole(selectedRole);
       toast.success('Account created successfully!');
-      navigate(`/${selectedRole}`, { replace: true });
+      navigate(`/${user.role}`, { replace: true });
     } catch (error: any) {
       toast.error(error.message || 'Registration failed');
     } finally {
@@ -150,15 +130,22 @@ export const SignupPage: React.FC = () => {
             </div>
 
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="phone_number">Phone Number</Label>
               <Input
-                id="email"
-                type="email"
-                {...register('email', { required: 'Email is required' })}
+                id="phone_number"
+                type="tel"
+                placeholder="+1234567890"
+                {...register('phone_number', { 
+                  required: 'Phone number is required',
+                  pattern: {
+                    value: /^\+?[1-9]\d{1,14}$/,
+                    message: 'Please enter a valid phone number'
+                  }
+                })}
                 className="mt-1"
               />
-              {errors.email && (
-                <p className="text-destructive text-sm mt-1">{errors.email.message}</p>
+              {errors.phone_number && (
+                <p className="text-destructive text-sm mt-1">{errors.phone_number.message}</p>
               )}
             </div>
 
@@ -179,19 +166,19 @@ export const SignupPage: React.FC = () => {
             </div>
 
             <div>
-              <Label htmlFor="region">Region</Label>
-              <Select onValueChange={(value) => setValue('region', value)} defaultValue="Hargeisa">
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Hargeisa">Hargeisa</SelectItem>
-                  <SelectItem value="Berbera">Berbera</SelectItem>
-                  <SelectItem value="Burao">Burao</SelectItem>
-                  <SelectItem value="Borama">Borama</SelectItem>
-                  <SelectItem value="Erigavo">Erigavo</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="password2">Confirm Password</Label>
+              <Input
+                id="password2"
+                type="password"
+                {...register('password2', { 
+                  required: 'Please confirm your password',
+                  minLength: { value: 6, message: 'Password must be at least 6 characters' }
+                })}
+                className="mt-1"
+              />
+              {errors.password2 && (
+                <p className="text-destructive text-sm mt-1">{errors.password2.message}</p>
+              )}
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading || !selectedRole}>

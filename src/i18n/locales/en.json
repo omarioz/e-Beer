@@ -97,7 +97,9 @@
     "delivered": "Delivered",
     "fresh": "Fresh",
     "good": "Good",
-    "fair": "Fair"
+    "fair": "Fair",
+    "sold": "Sold",
+    "paused": "Paused"
   },
   "orders": {
     "active": "Active",

@@ -14,22 +14,30 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.generic import TemplateView
-from django.conf import settings
-from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
 ]
 
-# Serve React app for all other routes (catch-all)
-urlpatterns += [
-    re_path(r'^.*$', TemplateView.as_view(template_name='index.html')),
-]
+# Serve assets from staticfiles directory (for Django admin and React build files)
+if settings.DEBUG:
+    from django.views.static import serve
+    urlpatterns += [
+        re_path(r'^assets/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
+    ]
 
-# Serve static files during development
+#Serve React app for all other routes (catch-all) - exclude API, admin, and static routes
+urlpatterns += [
+    re_path(r'^(?!api/|admin/|static/|assets/|favicon\.ico|media/).*$', TemplateView.as_view(template_name='index.html')),
+]# Serve static files during development
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

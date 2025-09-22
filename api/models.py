@@ -20,11 +20,27 @@ class AppUser(models.Model):
         ('buyer', 'Buyer'),
     ]
     
+    REGION_CHOICES = [
+        ('Mogadishu', 'Mogadishu'),
+        ('Bay', 'Bay'),
+        ('Hargeisa', 'Hargeisa'),
+        ('Gedo', 'Gedo'),
+    ]
+    
+    LANGUAGE_CHOICES = [
+        ('en', 'English'),
+        ('so', 'Somali'),
+        ('ar', 'Arabic'),
+    ]
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
-    email = models.EmailField(unique=False)  # Use auth.User.email for canonical
+    phone_number = models.CharField(max_length=15, unique=True)  # Phone number as unique identifier
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    region = models.CharField(max_length=50, choices=REGION_CHOICES, default='Mogadishu')
+    email_notifications = models.BooleanField(default=True)
+    language = models.CharField(max_length=5, choices=LANGUAGE_CHOICES, default='en')
 
     def __str__(self):
         return f"{self.name} ({self.role})"

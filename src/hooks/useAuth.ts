@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import localforage from 'localforage';
 import { User, UserRole } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/api';
 
 interface AuthState {
   user: User | null;
@@ -25,15 +24,27 @@ export const useAuth = () => {
 
   const checkAuthStatus = async () => {
     try {
-      const user = await localforage.getItem<User>('user');
-      const role = await localforage.getItem<UserRole>('selectedRole');
+      const token = localStorage.getItem('access_token');
+      const storedUser = localStorage.getItem('user');
+      const storedRole = localStorage.getItem('selectedRole');
       
-      setAuthState({
-        user,
-        isAuthenticated: !!user,
-        isLoading: false,
-        role,
-      });
+      if (token && storedUser) {
+        const user = JSON.parse(storedUser);
+        console.log('Auth check: Found stored user with role:', user.role, 'storedRole:', storedRole);
+        setAuthState({
+          user,
+          isAuthenticated: true,
+          isLoading: false,
+          role: storedRole as UserRole || user.role || null,
+        });
+      } else {
+        setAuthState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          role: null,
+        });
+      }
     } catch (error) {
       console.error('Auth check failed:', error);
       setAuthState({
@@ -45,76 +56,98 @@ export const useAuth = () => {
     }
   };
 
-  const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const login = async (phone_number: string, password: string) => {
+    try {
+      const response = await apiClient.login(phone_number, password);
+      
+      if (response.error) {
+        throw new Error(response.error);
+      }
 
-    if (error) throw error;
+      // Get user profile to get role information
+      const profileResponse = await apiClient.getProfile();
+      
+      const user: User = {
+        id: response.data?.user_id || 'temp-id',
+        email: phone_number, // Using phone_number as email for now
+        name: profileResponse.data?.name || phone_number,
+        role: profileResponse.data?.role || 'buyer',
+        region: 'Hargeisa',
+        language: 'en',
+        createdAt: new Date().toISOString(),
+      };
 
-    const user: User = {
-      id: data.user.id,
-      email: data.user.email!,
-      name: data.user.user_metadata.name || email.split('@')[0],
-      role: data.user.user_metadata.role || 'buyer',
-      region: data.user.user_metadata.region || 'Hargeisa',
-      language: data.user.user_metadata.language || 'en',
-      createdAt: data.user.created_at,
-    };
+      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('selectedRole', user.role);
+      
+      setAuthState(prev => ({
+        ...prev,
+        user,
+        isAuthenticated: true,
+        role: user.role,
+      }));
 
-    await localforage.setItem('user', user);
-    await localforage.setItem('selectedRole', user.role);
-    
-    setAuthState(prev => ({
-      ...prev,
-      user,
-      isAuthenticated: true,
-      role: user.role,
-    }));
-
-    return user;
+      return user;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
   };
 
-  const register = async (userData: Omit<User, 'id' | 'createdAt'>) => {
-    const { data, error } = await supabase.auth.signUp({
-      email: userData.email,
-      password: 'tempPassword123', // Will be replaced by actual password from form
-      options: {
-        data: {
-          name: userData.name,
-          role: userData.role,
-          region: userData.region,
-          language: userData.language,
-        },
-        emailRedirectTo: `${window.location.origin}/auth/callback`
+  const register = async (userData: {
+    username: string;
+    email: string;
+    password: string;
+    password2: string;
+    name: string;
+    role: UserRole;
+    phone_number: string;
+  }) => {
+    try {
+      const response = await apiClient.register(userData);
+      
+      if (response.error) {
+        throw new Error(response.error);
       }
-    });
 
-    if (error) throw error;
+      // Auto-login after successful registration
+      const loginResponse = await apiClient.login(userData.username, userData.password);
+      
+      if (loginResponse.error) {
+        throw new Error(loginResponse.error);
+      }
 
-    const newUser: User = {
-      id: data.user!.id,
-      email: userData.email,
-      name: userData.name,
-      role: userData.role,
-      region: userData.region,
-      language: userData.language,
-      createdAt: data.user!.created_at,
-    };
+      // Create user object with the role from registration data
+      const user: User = {
+        id: loginResponse.data?.user_id || 'temp-id',
+        email: userData.phone_number,
+        name: userData.name,
+        role: userData.role, // Use the role from registration data
+        region: 'Hargeisa',
+        language: 'en',
+        createdAt: new Date().toISOString(),
+      };
 
-    await localforage.setItem('user', newUser);
-    setAuthState(prev => ({
-      ...prev,
-      user: newUser,
-      isAuthenticated: true,
-    }));
+      console.log('Registration successful, setting role to:', userData.role);
+      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('selectedRole', user.role);
+      
+      setAuthState(prev => ({
+        ...prev,
+        user,
+        isAuthenticated: true,
+        role: user.role,
+      }));
 
-    return newUser;
+      return user;
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    }
   };
 
   const setRole = async (role: UserRole) => {
-    await localforage.setItem('selectedRole', role);
+    localStorage.setItem('selectedRole', role);
     setAuthState(prev => ({
       ...prev,
       role,
@@ -122,14 +155,15 @@ export const useAuth = () => {
   };
 
   const switchRole = async (newRole: UserRole) => {
-    await localforage.setItem('selectedRole', newRole);
+    localStorage.setItem('selectedRole', newRole);
     // Force page reload to reset app state
     window.location.reload();
   };
 
   const logout = async () => {
-    await localforage.removeItem('user');
-    await localforage.removeItem('selectedRole');
+    apiClient.logout();
+    localStorage.removeItem('user');
+    localStorage.removeItem('selectedRole');
     setAuthState({
       user: null,
       isAuthenticated: false,
@@ -153,14 +187,14 @@ export const useAuthActions = () => {
   const navigate = useNavigate();
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    await localforage.removeItem('user');
-    await localforage.removeItem('selectedRole');
+    apiClient.logout();
+    localStorage.removeItem('user');
+    localStorage.removeItem('selectedRole');
     navigate('/auth/login', { replace: true });
   };
 
   const switchRole = async () => {
-    await localforage.removeItem('selectedRole');
+    localStorage.removeItem('selectedRole');
     navigate('/auth/login', { replace: true });
   };
 

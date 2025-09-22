@@ -1,8 +1,8 @@
 from django.http import JsonResponse
 from rest_framework import viewsets, status, filters
-from rest_framework.decorators import api_view, action
+from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
@@ -18,6 +18,7 @@ from .permissions import (
 )
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def test_api(request):
     """Test API endpoint to verify backend is working"""
     return Response({
@@ -27,7 +28,7 @@ def test_api(request):
 
 class AuthViewSet(viewsets.ViewSet):
     """Authentication views"""
-    
+    permission_classes = [AllowAny]
     @action(detail=False, methods=['post'])
     def register(self, request):
         """Register a new user"""
@@ -42,19 +43,33 @@ class AuthViewSet(viewsets.ViewSet):
 
 class ProfileViewSet(viewsets.ModelViewSet):
     """Profile management views"""
-    serializer_class = ProfileSerializer
-    permission_classes = []
+    serializer_class = AppUserSerializer
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        return Profile.objects.filter(user=self.request.user)
-    
-    def get_serializer_class(self):
-        if self.action in ['retrieve', 'update', 'partial_update']:
-            return AppUserSerializer
-        return ProfileSerializer
+        return AppUser.objects.filter(user=self.request.user)
     
     def get_object(self):
         return get_object_or_404(AppUser, user=self.request.user)
+    
+    def update(self, request, *args, **kwargs):
+        """Update user profile"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['get'])
+    def current_user(self, request):
+        """Get current user's AppUser data including role"""
+        try:
+            app_user = AppUser.objects.get(user=request.user)
+            serializer = AppUserSerializer(app_user)
+            return Response(serializer.data)
+        except AppUser.DoesNotExist:
+            return Response({'error': 'User profile not found'}, status=status.HTTP_404_NOT_FOUND)
 
 class ProduceViewSet(viewsets.ModelViewSet):
     """Produce listing views"""
@@ -67,12 +82,30 @@ class ProduceViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
     
     def get_queryset(self):
+        user = self.request.user
+        
+        # For create/update/delete operations, only show farmer's own produce
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return Produce.objects.filter(farmer=self.request.user)
+            return Produce.objects.filter(farmer=user)
+        
+        # For list/retrieve operations, filter based on user role
+        try:
+            app_user = AppUser.objects.get(user=user)
+            if app_user.role == 'farmer':
+                # Farmers see only their own produce
+                return Produce.objects.filter(farmer=user)
+            elif app_user.role == 'buyer':
+                # Buyers see all active produce
+                return Produce.objects.filter(is_active=True)
+        except AppUser.DoesNotExist:
+            # If no AppUser found, default to showing all active produce
+            pass
+        
+        # Default: show all active produce (for unauthenticated users or fallback)
         return Produce.objects.filter(is_active=True)
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'bids']:
             return [IsFarmer()]
         return []
     
@@ -86,14 +119,33 @@ class ProduceViewSet(viewsets.ModelViewSet):
         produce.is_active = False
         produce.save()
         return Response({'message': 'Produce listing closed'})
+    
+    @action(detail=True, methods=['get'])
+    def bids(self, request, pk=None):
+        """Get bids for a specific produce listing (farmer only)"""
+        produce = self.get_object()
+        
+        # Check if user is the farmer who owns this produce
+        if produce.farmer != request.user:
+            return Response({'error': 'Only the produce owner can view bids'}, 
+                          status=status.HTTP_403_FORBIDDEN)
+        
+        bids = Bid.objects.filter(produce=produce)
+        serializer = BidSerializer(bids, many=True)
+        return Response(serializer.data)
 
 class BidViewSet(viewsets.ModelViewSet):
     """Bid management views"""
     serializer_class = BidSerializer
-    permission_classes = [IsBuyer]
+    permission_classes = []  # Remove class-level permissions to avoid conflicts
     
     def get_queryset(self):
         return Bid.objects.filter(buyer=self.request.user)
+    
+    def get_permissions(self):
+        if self.action in ['accept', 'reject']:
+            return [IsFarmer()]
+        return [IsBuyer()]
     
     def perform_create(self, serializer):
         serializer.save(buyer=self.request.user)
@@ -101,14 +153,21 @@ class BidViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
         """Accept a bid (farmer only)"""
-        bid = get_object_or_404(Bid, pk=pk)
+        try:
+            bid = Bid.objects.get(pk=pk)
+        except Bid.DoesNotExist:
+            return Response({'error': f'Bid {pk} not found'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': f'Bid not found: {e}'}, 
+                          status=status.HTTP_404_NOT_FOUND)
         
         if bid.produce.farmer != request.user:
             return Response({'error': 'Only the produce owner can accept bids'}, 
                           status=status.HTTP_403_FORBIDDEN)
         
         if bid.status != 'pending':
-            return Response({'error': 'Bid is not pending'}, 
+            return Response({'error': f'Bid is not pending (current status: {bid.status})'}, 
                           status=status.HTTP_400_BAD_REQUEST)
         
         # Accept the bid
@@ -137,7 +196,14 @@ class BidViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
         """Reject a bid (farmer only)"""
-        bid = get_object_or_404(Bid, pk=pk)
+        try:
+            bid = Bid.objects.get(pk=pk)
+        except Bid.DoesNotExist:
+            return Response({'error': f'Bid {pk} not found'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': f'Bid not found: {e}'}, 
+                          status=status.HTTP_404_NOT_FOUND)
         
         if bid.produce.farmer != request.user:
             return Response({'error': 'Only the produce owner can reject bids'}, 
@@ -150,7 +216,7 @@ class BidViewSet(viewsets.ModelViewSet):
 class OrderViewSet(viewsets.ModelViewSet):
     """Order management views"""
     serializer_class = OrderSerializer
-    permission_classes = []
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
         user = self.request.user

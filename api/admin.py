@@ -8,9 +8,9 @@ class ProfileAdmin(admin.ModelAdmin):
 
 @admin.register(AppUser)
 class AppUserAdmin(admin.ModelAdmin):
-    list_display = ['name', 'email', 'role', 'user']
+    list_display = ['name', 'phone_number', 'role', 'user']
     list_filter = ['role']
-    search_fields = ['name', 'email', 'user__username']
+    search_fields = ['name', 'phone_number', 'user__username']
 
 @admin.register(Produce)
 class ProduceAdmin(admin.ModelAdmin):

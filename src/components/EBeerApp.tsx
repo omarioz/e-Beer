@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MobileLayout } from '@/components/layout/MobileLayout';
 import { BottomNav } from '@/components/navigation/BottomNav';
 import { BuyerShop } from '@/components/buyer/BuyerShop';
@@ -18,12 +18,18 @@ type UserRole = 'buyer' | 'farmer' | 'admin';
 
 export const EBeerApp: React.FC = () => {
   const { role: userRole } = useAuth();
-  const [activeTab, setActiveTab] = useState(() => {
-    // Set default tab based on role
-    if (userRole === 'buyer') return 'shop';
-    if (userRole === 'farmer') return 'dashboard';
-    return 'analytics';
-  });
+  const [activeTab, setActiveTab] = useState('shop'); // Default to shop, will be updated by useEffect
+
+  // Update active tab when role changes
+  useEffect(() => {
+    if (userRole === 'buyer') {
+      setActiveTab('shop');
+    } else if (userRole === 'farmer') {
+      setActiveTab('dashboard');
+    } else if (userRole === 'admin') {
+      setActiveTab('analytics');
+    }
+  }, [userRole]);
 
   const renderContent = () => {
     if (userRole === 'buyer') {
