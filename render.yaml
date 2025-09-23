@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ebeer-shop
+    name: ebeer-api
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput
@@ -30,8 +30,6 @@ services:
         fromDatabase:
           name: ebeer-db
           property: port
-    domains:
-      - ebeer.shop
 
 databases:
   - name: ebeer-db

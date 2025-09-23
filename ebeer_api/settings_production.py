@@ -16,7 +16,6 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     '.onrender.com',  # Render's domain
-    'ebeer.shop',     # Your custom domain
 ]
 
 # Database - Use PostgreSQL on Render
@@ -33,9 +32,9 @@ DATABASES = {
 
 # CORS settings for production
 CORS_ALLOWED_ORIGINS = [
-    "https://ebeer.shop",
-    "https://ebeer-shop.onrender.com",
+    "https://ebeer.shop",  # Web app domain
     "http://localhost:3000",  # For development
+    "http://localhost:5173",  # Vite dev server
 ]
 
 # Static files
