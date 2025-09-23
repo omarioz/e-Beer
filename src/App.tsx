@@ -7,7 +7,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { SplashScreen } from "./pages/auth/SplashScreen";
 import { AuthRoutes } from "./pages/auth/AuthRoutes";
 import { EBeerApp } from "./components/EBeerApp";
-import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,7 +19,7 @@ const AppContent = () => {
   }
 
   if (!isAuthenticated) {
-    return <LandingPage />;
+    return <AuthRoutes />;
   }
 
   if (!role) {

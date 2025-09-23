@@ -69,10 +69,7 @@ export default {
 				warning: {
 					DEFAULT: 'hsl(var(--warning))',
 					foreground: 'hsl(var(--warning-foreground))'
-				},
-				// e-Beer custom colors
-				ebeerGreen: '#2E7D32',
-				ebeerCream: '#FFFDD0'
+				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

@@ -1,19 +1,22 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.8234ef117e83470ea37659dbc0325988',
-  appName: 'agri-link-ebeer',
+  appId: 'com.ebeer.agricultural',
+  appName: 'e-Beer',
   webDir: 'dist',
   server: {
-    url: 'https://8234ef11-7e83-470e-a376-59dbc0325988.lovableproject.com?forceHideBadge=true',
-    cleartext: true,
+    androidScheme: 'https'
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1800,
-      backgroundColor: '#00562C',
+      launchShowDuration: 2000,
+      backgroundColor: '#2E7D32',
       showSpinner: false,
     },
+    StatusBar: {
+      style: 'dark',
+      backgroundColor: '#2E7D32'
+    }
   },
 };
 

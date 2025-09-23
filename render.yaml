@@ -2,11 +2,37 @@ services:
   - type: web
     name: ebeer-shop
     env: python
-    buildCommand: npm run build && python manage.py collectstatic --noinput
+    plan: free
+    buildCommand: pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput
     startCommand: gunicorn ebeer_api.wsgi:application --bind 0.0.0.0:$PORT
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DJANGO_SETTINGS_MODULE
+        value: ebeer_api.settings_production
+      - key: DB_NAME
+        fromDatabase:
+          name: ebeer-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: ebeer-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: ebeer-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: ebeer-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: ebeer-db
+          property: port
     domains:
       - ebeer.shop
+
+databases:
+  - name: ebeer-db
+    plan: free
