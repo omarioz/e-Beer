@@ -16,6 +16,7 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     '.onrender.com',  # Render's domain
+    'e-beer-api.onrender.com',  # Your specific domain
 ]
 
 # Database - Use PostgreSQL on Render
