@@ -134,10 +134,9 @@ STATICFILES_DIRS = [
 ]
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+ORS_ALLOW_ALL_ORIGINS = True  # Allow all origins for mobile apps
+CORS_ALLOW_CREDENTIALS = True
+
 
 # REST Framework settings
 REST_FRAMEWORK = {
