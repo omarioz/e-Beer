@@ -134,7 +134,7 @@ STATICFILES_DIRS = [
 ]
 
 # CORS settings
-ORS_ALLOW_ALL_ORIGINS = True  # Allow all origins for mobile apps
+CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins for mobile apps
 CORS_ALLOW_CREDENTIALS = True
 
 
