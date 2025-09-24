@@ -25,7 +25,12 @@ SECRET_KEY = 'django-insecure-kthbx4=7v$wm1v+u8n3q-&a1e@&^yisp8c!c9!03!7*h^ou-g&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '.onrender.com',  # Render's domain
+    'e-beer-api.onrender.com',  # Your specific domain
+]
 
 
 # Application definition
