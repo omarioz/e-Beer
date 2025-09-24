@@ -7,3 +7,4 @@ djangorestframework-simplejwt==5.3.0
 django-filter==23.5
 whitenoise==6.6.0
 python-decouple==3.8
+setuptools>=65.0.0

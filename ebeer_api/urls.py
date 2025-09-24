@@ -33,11 +33,24 @@ if settings.DEBUG:
         re_path(r'^assets/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
     ]
 
-#Serve React app for all other routes (catch-all) - exclude API, admin, and static routes
+# Serve React app for specific routes
 urlpatterns += [
-    re_path(r'^(?!api/|admin/|static/|assets/|favicon\.ico|media/).*$', TemplateView.as_view(template_name='index.html')),
-]# Serve static files during development
+    path('', TemplateView.as_view(template_name='index.html')),
+    path('login', TemplateView.as_view(template_name='index.html')),
+    path('dashboard', TemplateView.as_view(template_name='index.html')),
+    path('profile', TemplateView.as_view(template_name='index.html')),
+    path('listings', TemplateView.as_view(template_name='index.html')),
+    path('orders', TemplateView.as_view(template_name='index.html')),
+    path('bids', TemplateView.as_view(template_name='index.html')),
+    path('admin-dashboard', TemplateView.as_view(template_name='index.html')),
+    # Add more React routes as needed
+]
+
+# Serve static files during development
 if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    from django.views.static import serve
+    urlpatterns += [
+        re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
+        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    ]
 
